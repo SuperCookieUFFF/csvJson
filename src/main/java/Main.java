@@ -1,6 +1,9 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.opencsv.bean.ColumnPositionMappingStrategy;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
@@ -8,6 +11,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -17,20 +22,65 @@ import java.util.List;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        // Читаем XML файл и получаем список сотрудников
-        List<Employee> employees = parseXML("data.xml");
+        // Часть 1: Конвертирование CSV в JSON
+        String[] columnMapping = {"id", "firstName", "lastName", "country", "age"};
+        String inputCsvFile = "data.csv";
+        String outputJsonFile = "data.json";
 
-        // Преобразуем список в JSON строку
-        String json = listToJson(employees);
+        // Чтение CSV и получение списка сотрудников
+        List<Employee> employeesFromCsv = parseCSV(columnMapping, inputCsvFile);
 
-        // Записываем JSON в файл
-        writeString(json, "data2.json");
+        // Преобразование списка в JSON строку
+        String jsonFromCsv = listToJson(employeesFromCsv);
 
-        System.out.println("Данные успешно сохранены в файл data2.json");
+        // Запись JSON строки в файл
+        writeString(jsonFromCsv, outputJsonFile);
+
+        System.out.println("JSON успешно записан в файл: " + outputJsonFile);
+
+        // Часть 2: Конвертирование XML в JSON
+        String inputXmlFile = "data.xml";
+        String outputJsonFile2 = "data2.json";
+
+        // Чтение XML и получение списка сотрудников
+        List<Employee> employeesFromXml = parseXML(inputXmlFile);
+
+        // Преобразование списка в JSON строку
+        String jsonFromXml = listToJson(employeesFromXml);
+
+        // Запись JSON строки в файл
+        writeString(jsonFromXml, outputJsonFile2);
+
+        System.out.println("JSON успешно записан в файл: " + outputJsonFile2);
     }
 
-    // Метод для чтения XML файла и создания списка сотрудников
-    public static List<Employee> parseXML(String xmlFileName) throws Exception {
+    // Метод для чтения CSV файла и получения списка сотрудников
+    private static List<Employee> parseCSV(String[] columnMapping, String fileName) throws IOException {
+        // Чтение CSV файла
+        FileReader reader = new FileReader(fileName);
+
+        // Определение стратегии отображения колонок
+        ColumnPositionMappingStrategy<Employee> strategy = new ColumnPositionMappingStrategy<>();
+        strategy.setType(Employee.class);
+        strategy.setColumnMapping(columnMapping);
+
+        // Парсинг CSV в объекты Employee
+        CsvToBean<Employee> csvToBean = new CsvToBeanBuilder(reader)
+                .withMappingStrategy(strategy)
+                .withSkipLines(0)
+                .build();
+
+        // Получаем список сотрудников
+        List<Employee> employees = csvToBean.parse();
+
+        // Закрываем поток
+        reader.close();
+
+        return employees;
+    }
+
+    // Метод для чтения XML файла и получения списка сотрудников
+    private static List<Employee> parseXML(String xmlFileName) throws Exception {
         // Создание фабрики для построения документа
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -71,9 +121,10 @@ public class Main {
     }
 
     // Метод для преобразования списка объектов в JSON строку
-    public static String listToJson(List<Employee> employees) {
+    private static String listToJson(List<Employee> employees) {
+        // Создаем Gson с параметром pretty printing
         Gson gson = new GsonBuilder()
-                .setPrettyPrinting()  // Этот параметр включает форматирование JSON
+                .setPrettyPrinting()  // Включаем форматирование JSON
                 .create();
 
         Type listType = new TypeToken<List<Employee>>() {}.getType();
@@ -81,7 +132,7 @@ public class Main {
     }
 
     // Метод для записи строки в файл
-    public static void writeString(String content, String fileName) throws IOException {
+    private static void writeString(String content, String fileName) throws IOException {
         FileWriter writer = new FileWriter(fileName);
         writer.write(content);
         writer.close();
